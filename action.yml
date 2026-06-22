@@ -11,10 +11,23 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Restore NSIS cache
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
+      id: restore-nsis-installer
+      with:
+        path: 'C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache'
+        key: nsis-installer-${{ inputs.nsis-version }}-cache
+    - name: Download NSIS files
+      if: steps.restore-nsis-installer.outputs.cache-hit != 'true'
+      run: |
+        New-Item -Path "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache" -ItemType Directory -Force
+        Invoke-WebRequest -UserAgent "curl/8.20.0" "https://sourceforge.net/projects/nsis/files/NSIS%203/${{ inputs.nsis-version }}/nsis-${{ inputs.nsis-version }}-setup.exe/download?" -OutFile "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache\nsis-setup.exe"
+        Invoke-WebRequest -UserAgent "curl/8.20.0" "https://sourceforge.net/projects/nsis/files/NSIS%203/${{ inputs.nsis-version }}/nsis-${{ inputs.nsis-version }}-strlen_8192.zip/download?" -OutFile "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache\strlen_8192.zip"
+        Invoke-WebRequest -UserAgent "curl/8.20.0" "https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip?" -OutFile "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache\EnVar_plugin.zip"
+      shell: pwsh
     - name: Install NSIS
       run: |
-        Invoke-WebRequest -UserAgent "curl/8.20.0" "https://sourceforge.net/projects/nsis/files/NSIS%203/${{ inputs.nsis-version }}/nsis-${{ inputs.nsis-version }}-setup.exe/download?" -OutFile C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-setup.exe
-        $process = Start-Process "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-setup.exe" -ArgumentList "/S" -Wait -PassThru
+        $process = Start-Process "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache\nsis-setup.exe" -ArgumentList "/S" -Wait -PassThru
         $exitCode = $process.ExitCode
           if ($exitCode -eq 0) {
               Write-Host "Installer ran successfully."
@@ -27,11 +40,9 @@ runs:
       shell: pwsh
     - name: Apply NSIS long string patch
       run: |
-        Invoke-WebRequest -UserAgent "curl/8.20.0" "https://sourceforge.net/projects/nsis/files/NSIS%203/${{ inputs.nsis-version }}/nsis-${{ inputs.nsis-version }}-strlen_8192.zip/download?" -OutFile C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-strlen_8192.zip
-        Expand-Archive "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-strlen_8192.zip" -DestinationPath "C:\Program Files (x86)\NSIS" -Force
+        Expand-Archive "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache\strlen_8192.zip" -DestinationPath "C:\Program Files (x86)\NSIS" -Force
       shell: pwsh
     - name: Install NSIS EnvVar plugin
       run: |
-        Invoke-WebRequest -UserAgent "curl/8.20.0" "https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip?" -OutFile C:\WINDOWS\Temp\EnVar_plugin.zip
-        Expand-Archive "C:\WINDOWS\Temp\EnVar_plugin.zip" -DestinationPath "C:\Program Files (x86)\NSIS" -Force
+        Expand-Archive "C:\WINDOWS\Temp\nsis-${{ inputs.nsis-version }}-cache\EnVar_plugin.zip" -DestinationPath "C:\Program Files (x86)\NSIS" -Force
       shell: pwsh
